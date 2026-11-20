@@ -1,27 +1,28 @@
 """Entry program for the make.fun bounty "Sum up 20 November's world news
 in one image" (news-image-20261120).
 
-Paints the poster described in render.py, checks the encoded PNG the way
-the gate will -- signature, chunk checksums, dimensions, size -- and only
-then writes it as entry.png in the output directory. Painting is pure
-arithmetic on fixed content, so two runs write the same bytes.
+The poster itself is painted ahead of time by tools/build_image.py (which
+drives render.py) and sealed into assets/entry.png.b64. This program is
+deliberately standard-library only: it decodes that sealed image, checks
+the PNG the way the gate will -- signature, chunk checksums, dimensions,
+size -- and only then writes it as entry.png in the output directory.
+No third-party package is imported, so the program runs the same in any
+bare Python the grader provides.
 
     MAKEFUN_OUTPUT_DIR=out python3 main.py
 """
 
-import io
+import base64
 import os
 import struct
 import sys
 import zlib
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from render import draw_poster
-
 MAX_BYTES = 1_048_576
 MAX_SIDE = 1024
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+HERE = os.path.dirname(os.path.abspath(__file__))
+ASSET = os.path.join(HERE, "assets", "entry.png.b64")
 
 
 def check_png(blob):
@@ -53,13 +54,20 @@ def check_png(blob):
     return width, height
 
 
+def load_poster():
+    """Decode the sealed poster asset back into the exact PNG bytes."""
+    with open(ASSET, "r", encoding="ascii") as fh:
+        encoded = "".join(fh.read().split())
+    return base64.b64decode(encoded, validate=True)
+
+
 def main():
     out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
     os.makedirs(out_dir, exist_ok=True)
-    buf = io.BytesIO()
-    draw_poster().save(buf, format="PNG", optimize=True)
-    blob = buf.getvalue()
-    check_png(blob)
+    blob = load_poster()
+    width, height = check_png(blob)
+    if (width, height) != (1024, 1024):
+        raise ValueError(f"sealed poster is {width}x{height}, expected 1024x1024")
     path = os.path.join(out_dir, "entry.png")
     with open(path, "wb") as fh:
         fh.write(blob)
