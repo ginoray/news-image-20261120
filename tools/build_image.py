@@ -28,7 +28,7 @@ def main():
     draw_poster().save(buf, format="PNG", optimize=True)
     blob = buf.getvalue()
     os.makedirs(os.path.dirname(ASSET), exist_ok=True)
-    wrapped = base64.encodebytes(blob).decode("ascii")
+    wrapped = base64.b64encode(blob).decode("ascii")
     with open(ASSET, "w", encoding="ascii") as fh:
         fh.write(wrapped)
     print(f"sealed {len(blob)} PNG bytes into {ASSET}")
